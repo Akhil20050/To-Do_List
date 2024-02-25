@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #f8f9fa;
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+
+        .container {
+            background-color: #ffffff;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+            padding: 30px;
+            border-radius: 10px;
+            width: 80%;
+            max-width: 400px;
+        }
+
+        h1 {
+            color: #343a40;
+            text-align: center;
+        }
+
+        .todo-form {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        input[type="text"] {
+            padding: 10px;
+            font-size: 16px;
+            border: 1px solid #ced4da;
+            border-radius: 5px;
+            margin-bottom: 10px;
+        }
+
+        button {
+            padding: 10px 15px;
+            font-size: 16px;
+            background-color: #ffc107;
+            color: #343a40;
+            font-weight: 700;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+
+        button:hover {
+            background-color: #ffca2c;
+        }
+
+        .task-list {
+            list-style-type: none;
+            padding: 0;
+        }
+
+        .task {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background-color: #ffffff;
+            padding: 15px;
+            margin-bottom: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s ease;
+            cursor: grab;
+        }
+
+        .task:hover {
+            transform: scale(1.02);
+        }
+
+        .completed-task {
+            background-color: #d4edda; /* Light green background for completed tasks */
+        }
+
+        .task-checkbox {
+            margin-right: 10px;
+            cursor: pointer;
+        }
+
+        .task-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .edit-btn,
+        .delete-btn {
+            padding: 8px 12px;
+            font-size: 14px;
+            cursor: pointer;
+            border: none;
+            border-radius: 4px;
+            transition: opacity 0.3s ease;
+        }
+
+        .edit-btn {
+            background-color: #007bff;
+            color: #000;
+        }
+
+        .delete-btn {
+            background-color: #dc3545;
+            color: #000;
+        }
+
+        .edit-btn:hover,
+        .delete-btn:hover {
+            opacity: 0.8;
+        }
+
+        .drag-over {
+            border: 2px dashed #007bff;
+        }
+
+        /* Dark theme styles */
+        body.dark-mode {
+            background-color: #343a40;
+            color: #ffffff;
+        }
+
+        .dark-mode .container {
+            background-color: #212529;
+            color: #ffffff;
+            box-shadow: 0 0 20px rgba(255, 255, 255, 0.1);
+        }
+
+        .dark-mode input[type="text"],
+        .dark-mode button,
+        .dark-mode .task {
+            background-color: #343a40;
+            color: #ffffff;
+            border: 1px solid #ced4da;
+        }
+
+        .dark-mode button:hover,
+        .dark-mode .task:hover {
+            background-color: #495057;
+        }
+
+        .dark-mode .completed-task {
+            background-color: #2f3230;
+            color: #ffffff;
+        }
+
+        /* Theme switcher styles */
+        #themeSwitcher {
+            position: fixed;
+            top: 60px;
+            right: 80px;
+            cursor: pointer;
+            width: 40px;
+            height: 20px;
+            background-color: #000;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            transition: transform 0.3s ease;
+        }
+
+        #themeSwitcher::before {
+            content: '';
+            width: 20px;
+            height: 20px;
+            background-color: #fff; /* Yellow color for the indicator */
+            border-radius: 50%;
+            transition: transform 0.3s ease;
+        }
+
+        body.dark-mode #themeSwitcher::before {
+            transform: translateX(20px);
+        }
+        h2{
+            position: absolute;
+            top: 20px;
+            right: -13px;
+            font-weight: 100;
+            font-size: 1.2em;
+        }
+    </style>
+    <title>ToDo List</title>
+</head>
+
+<body>
+    <div class="container">
+        <h1>To-Do List</h1>
+        <div class="todo-form">
+            <input type="text" id="taskInput" placeholder="Add a new task">
+            <button onclick="addTask()">Add</button>
+        </div>
+        <ul id="taskList" class="task-list" ondrop="drop(event)" ondragover="allowDrop(event)"></ul>
+    </div>
+
+    <!-- Theme switcher button -->
+    <div id="themeSwitcher" onclick="toggleTheme()">
+    <h2>Theme</h2>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const savedTasks = JSON.parse(localStorage.getItem('tasks')) || [];
+            const taskList = document.getElementById('taskList');
+
+            savedTasks.forEach(taskText => {
+                const taskItem = createTaskElement(taskText);
+                taskList.appendChild(taskItem);
+            });
+
+            makeTasksDraggable();
+        });
+
+        function makeTasksDraggable() {
+    const tasks = document.querySelectorAll('.task');
+    tasks.forEach(task => {
+        task.removeAttribute('draggable');  // Remove existing draggable attribute
+        task.removeEventListener('dragstart', handleDragStart);
+        task.removeEventListener('dragover', handleDragOver);
+        task.removeEventListener('dragenter', handleDragEnter);
+        task.removeEventListener('dragleave', handleDragLeave);
+        task.removeEventListener('drop', handleDrop);
+
+        task.setAttribute('draggable', true);
+        task.addEventListener('dragstart', (event) => handleDragStart(event, task));
+        task.addEventListener('dragover', (event) => handleDragOver(event));
+        task.addEventListener('dragenter', (event) => handleDragEnter(event));
+        task.addEventListener('dragleave', (event) => handleDragLeave(event));
+        task.addEventListener('drop', (event) => handleDrop(event));
+    });
+}
+
+
+        function handleDragStart(event, task) {
+            event.dataTransfer.setData('text/plain', task.textContent);
+            task.classList.add('dragging');
+        }
+
+        function handleDragOver(event) {
+            event.preventDefault();
+        }
+
+        function handleDragEnter(event) {
+            event.preventDefault();
+            const dropZone = event.target.closest('.task');
+            if (dropZone) {
+                dropZone.classList.add('drag-over');
+            }
+        }
+
+        function handleDragLeave(event) {
+            const dropZone = event.target.closest('.task');
+            if (dropZone) {
+                dropZone.classList.remove('drag-over');
+            }
+        }
+
+        function handleDrop(event) {
+            event.preventDefault();
+            const draggedText = event.dataTransfer.getData('text/plain');
+            const dropZone = event.target.closest('.task');
+            
+            if (dropZone) {
+                dropZone.classList.remove('drag-over');
+                const tasks = document.getElementById('taskList').children;
+                const dropIndex = Array.from(tasks).indexOf(dropZone);
+
+                const savedTasks = JSON.parse(localStorage.getItem('tasks')) || [];
+                const draggedIndex = savedTasks.indexOf(draggedText);
+                savedTasks.splice(draggedIndex, 1);
+                savedTasks.splice(dropIndex, 0, draggedText);
+                localStorage.setItem('tasks', JSON.stringify(savedTasks));
+
+                // Update the DOM order
+                const taskList = document.getElementById('taskList');
+                const draggedElement = document.querySelector('.dragging');
+                taskList.insertBefore(draggedElement, taskList.children[dropIndex]);
+
+                // Remove dragging class
+                draggedElement.classList.remove('dragging');
+            }
+        }
+
+        function addTask() {
+            const taskInput = document.getElementById('taskInput');
+            const taskList = document.getElementById('taskList');
+
+            if (taskInput.value.trim() !== '') {
+                const taskItem = createTaskElement(taskInput.value);
+
+                const savedTasks = JSON.parse(localStorage.getItem('tasks')) || [];
+                savedTasks.push(taskInput.value);
+                localStorage.setItem('tasks', JSON.stringify(savedTasks));
+
+                taskList.appendChild(taskItem);
+                taskInput.value = '';
+
+                // Make the new task draggable
+                const newTask = taskList.lastChild;
+                newTask.setAttribute('draggable', true);
+                newTask.addEventListener('dragstart', (event) => handleDragStart(event, newTask));
+                newTask.addEventListener('dragover', (event) => handleDragOver(event));
+                newTask.addEventListener('dragenter', (event) => handleDragEnter(event));
+                newTask.addEventListener('dragleave', (event) => handleDragLeave(event));
+                newTask.addEventListener('drop', (event) => handleDrop(event));
+            }
+            const newTask = taskList.lastChild;
+    makeTasksDraggable();
+        }
+
+        function createTaskElement(taskText) {
+            const taskItem = document.createElement('li');
+            taskItem.className = 'task';
+
+            // Create checkbox
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.className = 'task-checkbox';
+            checkbox.addEventListener('change', () => handleCheckboxChange(taskItem, taskText));
+
+            const taskTextElement = document.createElement('span');
+            taskTextElement.textContent = taskText;
+
+            const taskActions = document.createElement('div');
+            taskActions.className = 'task-actions';
+
+            const editButton = createButton('Edit', 'edit-btn', () => editTask(taskItem, taskText));
+            const deleteButton = createButton('Delete', 'delete-btn', () => deleteTask(taskItem, taskText));
+
+            taskActions.appendChild(checkbox);
+            taskActions.appendChild(editButton);
+            taskActions.appendChild(deleteButton);
+
+            taskItem.appendChild(taskTextElement);
+            taskItem.appendChild(taskActions);
+
+            return taskItem;
+        }
+
+        function createButton(text, className, clickHandler) {
+            const button = document.createElement('button');
+            button.className = className;
+            button.textContent = text;
+            button.addEventListener('click', clickHandler);
+            return button;
+        }
+
+        function handleCheckboxChange(taskItem, taskText) {
+            const checkbox = taskItem.querySelector('.task-checkbox');
+            if (checkbox.checked) {
+                // Task completed
+                taskItem.classList.add('completed-task');
+                showRandomGreeting();
+            } else {
+                // Task not completed
+                taskItem.classList.remove('completed-task');
+            }
+        }
+
+        function showRandomGreeting() {
+            const greetings = ['Great job!', 'Well done!', 'Awesome!', 'Keep it up!', 'Fantastic!'];
+            const randomIndex = Math.floor(Math.random() * greetings.length);
+            const randomGreeting = greetings[randomIndex];
+            alert(randomGreeting + " You have completed the task");
+        }
+
+        function editTask(taskItem, originalText) {
+            const newText = prompt('Edit task:', originalText);
+            if (newText !== null) {
+                const taskTextElement = taskItem.firstChild;
+                taskTextElement.textContent = newText;
+
+                const savedTasks = JSON.parse(localStorage.getItem('tasks')) || [];
+                const index = savedTasks.indexOf(originalText);
+                if (index !== -1) {
+                    savedTasks[index] = newText;
+                    localStorage.setItem('tasks', JSON.stringify(savedTasks));
+                }
+            }
+        }
+
+        function deleteTask(taskItem, taskText) {
+    taskItem.remove();
+
+    const savedTasks = JSON.parse(localStorage.getItem('tasks')) || [];
+    const index = savedTasks.indexOf(taskText);
+    
+    if (index !== -1) {
+        savedTasks.splice(index, 1);
+        localStorage.setItem('tasks', JSON.stringify(savedTasks));
+    }
+}
+
+
+        // Theme switcher function
+        function toggleTheme() {
+            const body = document.body;
+            body.classList.toggle('dark-mode');
+
+            // Save theme preference in localStorage
+            const isDarkMode = body.classList.contains('dark-mode');
+            localStorage.setItem('darkMode', isDarkMode);
+        }
+
+        // Check and set initial theme on page load
+        function checkTheme() {
+            const body = document.body;
+            const isDarkMode = localStorage.getItem('darkMode') === 'true';
+
+            if (isDarkMode) {
+                body.classList.add('dark-mode');
+            }
+        }
+
+        checkTheme(); // Check and set theme on page load
+    </script>
+</body>
+
+</html>
